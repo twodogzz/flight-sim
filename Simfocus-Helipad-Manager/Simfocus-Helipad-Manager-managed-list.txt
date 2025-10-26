@@ -1,0 +1,3 @@
+﻿# Managed helipads to keep OFF
+# One filename per line (e.g., FR_5XZ53.bgl)
+

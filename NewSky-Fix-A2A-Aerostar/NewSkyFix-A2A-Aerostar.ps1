@@ -1,0 +1,281 @@
+﻿# Prompt for dry-run mode
+$dryChoice = Read-Host "Run in dry-run mode (no changes made)? (Y/N)"
+$DryRun = $false
+if ($dryChoice -in @("Y","y")) {
+    $DryRun = $true
+}
+
+# Config file lives alongside the script
+$configFile = Join-Path $PSScriptRoot "NewSkyFix-Config.json"
+
+# --- Load or create/upgrade config file ---
+if (Test-Path $configFile) {
+    # Load JSON as PSCustomObject
+    $config = Get-Content $configFile -Raw | ConvertFrom-Json
+} else {
+    $config = New-Object PSObject
+}
+
+# Helper: ensure property exists, otherwise prompt or default
+function Ensure-ConfigProperty {
+    param(
+        [string]$Name,
+        [string]$Prompt,
+        [string]$Default = $null
+    )
+    if (-not ($config.PSObject.Properties.Name -contains $Name) -or [string]::IsNullOrWhiteSpace($config.$Name)) {
+        if ($Default) {
+            $value = $Default
+        } else {
+            $value = Read-Host $Prompt
+        }
+        $config | Add-Member -NotePropertyName $Name -NotePropertyValue $value -Force
+    }
+}
+
+# Ensure required config values
+Ensure-ConfigProperty -Name "ScriptFolder" -Prompt "Enter the folder where logs/config should be stored" -Default $PSScriptRoot
+Ensure-ConfigProperty -Name "CommunityFolder" -Prompt "Enter the full path to your MSFS Community folder"
+Ensure-ConfigProperty -Name "LayoutGenerator" -Prompt "Enter the full path to MSFSLayoutGenerator.exe"
+Ensure-ConfigProperty -Name "AltState" -Prompt "Enter the alternate state name (e.g. a2a-aircraft-aerostar600)"
+
+# Save back to JSON
+$config | ConvertTo-Json | Out-File -FilePath $configFile -Encoding UTF8
+
+# Assign variables from config
+$scriptFolder    = $config.ScriptFolder
+$communityFolder = $config.CommunityFolder
+$generatorPath   = $config.LayoutGenerator
+$altState        = $config.AltState
+
+# Ensure script folder exists
+if (-not (Test-Path $scriptFolder)) {
+    New-Item -Path $scriptFolder -ItemType Directory -Force | Out-Null
+}
+
+# Define log file
+$logFile = Join-Path $scriptFolder "NewSkyFix-A2A-AerostarLog.txt"
+
+# --- One-time header if log file doesn't exist ---
+if (-not (Test-Path $logFile)) {
+    "=== NewSkyFix-A2A-Aerostar Log File ===" | Out-File -FilePath $logFile -Encoding UTF8
+    "This log records all state changes (Base ↔ Alternate) and dry-run operations for the Aerostar aircraft." | Out-File -FilePath $logFile -Append -Encoding UTF8
+    "Created on $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" | Out-File -FilePath $logFile -Append -Encoding UTF8
+    "" | Out-File -FilePath $logFile -Append -Encoding UTF8
+}
+
+# Verify paths
+if (-not (Test-Path $communityFolder)) {
+    Write-Host "❌ Community folder not found at $communityFolder"
+    exit
+}
+if (-not (Test-Path $generatorPath)) {
+    Write-Host "❌ MSFSLayoutGenerator.exe not found at $generatorPath"
+    exit
+}
+
+# Define aircraft paths
+$packageFolder = Join-Path $communityFolder "a2a-aircraft-aerostar600"
+$folderPath    = Join-Path $packageFolder "SimObjects\Airplanes\aerostar600\presets\a2a"
+$jsonFile      = Join-Path $packageFolder "layout.json"
+
+$baseFolder = Join-Path $folderPath "Base"
+$altFolder  = Join-Path $folderPath $altState
+
+# Logging helper
+function Log {
+    param([string]$msg)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $entry = "$timestamp  $msg"
+    $entry | Out-File -FilePath $logFile -Append -Encoding UTF8
+    Write-Host $msg
+}
+
+Log "`n=== Script started ==="
+Log "Dry-run mode: $DryRun"
+
+# Detect folder state
+if (Test-Path $baseFolder) {
+    $folderState = "Base"
+} elseif (Test-Path $altFolder) {
+    $folderState = $altState
+} else {
+    Log "❌ Neither 'Base' nor '$altState' folder found."
+    exit
+}
+
+# Detect JSON state
+if (-not (Test-Path $jsonFile)) {
+    Log "❌ layout.json not found."
+    exit
+}
+
+$jsonContent = Get-Content $jsonFile -Raw
+if ($jsonContent -match "/Base/") {
+    $jsonState = "Base"
+} elseif ($jsonContent -match "/$altState/") {
+    $jsonState = $altState
+} else {
+    $jsonState = "Unknown"
+}
+
+Log "📂 Folder state: $folderState"
+Log "📄 layout.json state: $jsonState"
+
+# Handle mismatch
+if ($folderState -ne $jsonState -and $jsonState -ne "Unknown") {
+    Log "⚠️ Mismatch detected between folder and layout.json."
+    Write-Host "Choose which state to enforce:"
+    Write-Host "  1 - Base"
+    Write-Host "  2 - $altState"
+    Write-Host "  3 - Cancel"
+    $choice = Read-Host "Enter choice (1/2/3)"
+
+    switch ($choice) {
+        1 {
+            Log "🔧 Enforcing Base state"
+            if (-not $DryRun) {
+                if ($folderState -eq $altState) { Rename-Item -Path $altFolder -NewName "Base" -Force }
+                $jsonContent = $jsonContent -replace "/$altState/", "/Base/"
+                $finalState = "Base"
+                $jsonUpdated = $true
+            }
+        }
+        2 {
+            Log "🔧 Enforcing $altState state"
+            if (-not $DryRun) {
+                if ($folderState -eq "Base") { Rename-Item -Path $baseFolder -NewName $altState -Force }
+                $jsonContent = $jsonContent -replace "/Base/", "/$altState/"
+                $finalState = $altState
+                $jsonUpdated = $true
+            }
+        }
+        3 {
+            Log "Operation cancelled by user."
+            exit
+        }
+        Default {
+            Log "Invalid choice. Operation cancelled."
+            exit
+        }
+    }
+}
+# Offer toggle with numeric input, plus option to change AltState
+if ($folderState -eq "Base") {
+    Write-Host "Choose an action:"
+    Write-Host "  1 - Switch to previous $altState"
+    Write-Host "  2 - Enter new state (and replace AltState in config)"
+    Write-Host "  3 - Stay on Base (Cancel)"
+    $choice = Read-Host "Enter choice (1/2/3)"
+
+    switch ($choice) {
+        1 {
+            Log "🔧 Toggling Base → $altState"
+            if (-not $DryRun) {
+                Rename-Item -Path $baseFolder -NewName $altState -Force
+                $jsonContent = $jsonContent -replace "/Base/", "/$altState/"
+                $finalState = $altState
+                $jsonUpdated = $true
+            }
+        }
+        2 {
+            $newAlt = Read-Host "Enter new alternate state name"
+            Log "🔧 Changing AltState from $altState → $newAlt"
+            $config.AltState = $newAlt
+            $config | ConvertTo-Json | Out-File -FilePath $configFile -Encoding UTF8
+            if (-not $DryRun) {
+                Rename-Item -Path $baseFolder -NewName $newAlt -Force
+                $jsonContent = $jsonContent -replace "/Base/", "/$newAlt/"
+                $finalState = $newAlt
+                $jsonUpdated = $true
+            }
+        }
+        3 {
+            Log "Operation cancelled by user."
+            exit
+        }
+        Default {
+            Log "Invalid choice. Operation cancelled."
+            exit
+        }
+    }
+}
+else {
+    # If currently in AltState, offer to change AltState, switch back, or cancel
+    Write-Host "Choose an action:"
+    Write-Host "  1 - Enter a new state (and replace AltState in config)"
+    Write-Host "  2 - Switch to Base"
+    Write-Host "  3 - Stay on current $altState (Cancel)"
+    $choice = Read-Host "Enter choice (1/2/3)"
+
+    switch ($choice) {
+        1 {
+            $newAlt = Read-Host "Enter new alternate state name"
+            Log "🔧 Changing AltState from $altState → $newAlt"
+            $config.AltState = $newAlt
+            $config | ConvertTo-Json | Out-File -FilePath $configFile -Encoding UTF8
+            if (-not $DryRun) {
+                Rename-Item -Path $altFolder -NewName $newAlt -Force
+                $jsonContent = $jsonContent -replace "/$altState/", "/$newAlt/"
+                $finalState = $newAlt
+                $jsonUpdated = $true
+            }
+        }
+        2 {
+            Log "🔧 Toggling $folderState → Base"
+            if (-not $DryRun) {
+                Rename-Item -Path $altFolder -NewName "Base" -Force
+                $jsonContent = $jsonContent -replace "/$altState/", "/Base/"
+                $finalState = "Base"
+                $jsonUpdated = $true
+            }
+        }
+        3 {
+            Log "Operation cancelled by user."
+            exit
+        }
+        Default {
+            Log "Invalid choice. Operation cancelled."
+            exit
+        }
+    }
+}
+
+# Backup and write JSON
+if (-not $DryRun -and $jsonUpdated) {
+    $backupFile = $jsonFile + ".bak"
+    if (-not (Test-Path $backupFile)) {
+        Copy-Item $jsonFile $backupFile
+        Log "🗂 Backup created at $backupFile"
+    }
+
+    Set-Content -Path $jsonFile -Value $jsonContent -Encoding UTF8
+    Log "✅ layout.json updated successfully."
+    if ($finalState) {
+        Log "📌 Final state: $finalState"
+    }
+
+    # --- Run MSFSLayoutGenerator to rebuild layout.json ---
+    if (Test-Path $generatorPath) {
+        Log "⚙️ Running MSFSLayoutGenerator.exe on $jsonFile"
+        try {
+            & $generatorPath $jsonFile | ForEach-Object { Log $_ }
+            Log "✅ layout.json rebuilt by MSFSLayoutGenerator"
+        } catch {
+            Log "❌ Error running MSFSLayoutGenerator: $($_.Exception.Message)"
+        }
+    }
+    else {
+        Log "❌ MSFSLayoutGenerator.exe not found at $generatorPath"
+    }
+}  # <-- closes the if (-not $DryRun -and $jsonUpdated) block
+
+elseif ($DryRun) {
+    Log "🧪 Dry-run mode: No changes were made."
+    Log "📌 Final state (unchanged): $folderState"
+}
+else {
+    Log "ℹ️ No changes required, layout.json already consistent."
+}
+
+Log "=== Script finished ===`n"

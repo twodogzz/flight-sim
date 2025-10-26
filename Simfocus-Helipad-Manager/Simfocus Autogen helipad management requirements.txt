@@ -1,0 +1,55 @@
+Simfocus Autogen helipad management 
+
+Goal
+Develop a semi-automated method to manage Simfocus Autogen helipad scenery bgl files so their state is easily controlled by the user.
+
+Compatiblility
+msfs-2024 Version: 1.5.27.0. msfs-2020 Version: 1.39.9.0.
+
+Program Languages
+1. Windows /1011 Powershell script
+2. Windows C++ Executable (W10 & 11)
+
+Overview
+Simfocus Autogen helipads is a MSFS 2024/2020 add-on provided in a compressed file format. The add-on is availabe to purchase on this web page https://simfocus.com/product/msfs-autogen-helipads-v2/ and downloaded files are named simfocus-autogen-helipads-world.zip for MSFS 2020 and simfocus-autogen-helipads-world-2024.zip for MSFS 2024
+
+The user can drag and drop the add-on folder named simfocus-autogen-helipads-world-2024 or simfocus-autogen-helipads-world into the appropriate MSFS version's Community folder.
+There are over 45,000 helipads in the add-on and each one has an individual scenery bgl file in the Community folder. 
+...Community\simfocus-autogen-helipads-world\Scenery\simfocus-autogen-helipads-World\scenery\
+...Community\simfocus-autogen-helipads-world-2024\Scenery\simfocus-autogen-helipads-World-2024\scenery\
+
+Each bgl file is named in this manner: e.g. FR_5XZ53.bgl 
+	Country designator - characters 1 and 2
+	Seperator - character 3
+	ICAO identifer - characters 4 to 8
+	File extension - ".bgl" at the end
+
+Process
+The user executes the script at their discrection.
+Check initialise config:
+	If config file doesn't exist, prompt the user to record the following information in a config file in the same folder as the script:
+	
+	Initialisation
+	1. Community folder's location - If it doesn't exist notify user and prompt for location. If no entry then quit.
+	2. Managed list's file location - If it doesn't exist then do Option 1 below immediately
+
+Prompt the user with these options:
+	1. Update the Managed list
+	2. Update the scenery file states
+	3. Update the config file
+	If nothing entered then quit
+
+Option 1.
+	User enters search text, presses enter and the matching files from the Managed list are displayed sorted alphbetically with an index.
+	If no matches then prompt the user for the exact file name and add it to the list.
+	Otherwise prompt the user for an index and delete existing file reference.
+	Prompt the user to Update the scenery file states
+
+Option 2.
+	The script reviews the user managed list of files that are normally deactivated, referred to as the OFF state.
+	The managed list of files are compared to the community folder bgl files and the latter are updated to OFF or ON state dependent on the following criteria. If the scenery bgl file is:
+		1. in the managed list and the state is ON, then the update changes the scenery bgl file extension from .bgl to .OFF.
+		2. NOT in the managed list and the state is OFF, then the update changes the scenery bgl file extension from .OFF to .bgl (ON).
+
+Option 3.
+	Do the initialisation.

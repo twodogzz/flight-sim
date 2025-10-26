@@ -1,0 +1,463 @@
+﻿<#
+.SYNOPSIS
+  Simfocus Autogen Helipads Manager (PowerShell, Windows 10/11)
+
+.DESCRIPTION
+  Semi-automated management of Simfocus Autogen helipad BGL scenery files for MSFS 2020/2024.
+  Toggles helipad states (ON/OFF) by renaming file extensions (.bgl <-> .OFF).
+  Includes config initialization, managed list updates (search/add/remove/batch), and state application.
+  Persistent UTF-8 logging, reversible operations, clear user prompts.
+
+.NOTES
+  - Managed list contains helipad file names to keep OFF (e.g., FR_5XZ53.bgl).
+  - Config stores Community folder path and managed list path; optional SimVersion.
+  - Safe operations: no destructive deletes; only reversible renames.
+
+.VERSION
+  0.0.3α
+#>
+
+#region Globals
+$Script:AppName        = 'Helipad Manager'
+$Script:AppId          = 'Simfocus-Helipad-Manager'
+$Script:Version        = '0.0.3α'
+$Script:BaseDir        = Split-Path -Path $MyInvocation.MyCommand.Path -Parent
+$Script:ConfigPath     = Join-Path $Script:BaseDir "$($Script:AppId)-config.json"
+$Script:ManagedList    = Join-Path $Script:BaseDir "$($Script:AppId)-managed-list.txt"
+$Script:LogPath        = Join-Path $Script:BaseDir "$($Script:AppId)-log.txt"
+$Script:Encoding       = New-Object System.Text.UTF8Encoding($false) # UTF8 without BOM
+#endregion Globals
+
+#region Utilities
+function Write-Log {
+    param(
+        [string]$Message,
+        [ValidateSet('INFO','WARN','ERROR','SUCCESS')][string]$Level = 'INFO'
+    )
+    $line = "[{0}] [{1}] {2}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message
+
+    $color = switch ($Level) {
+        'INFO'    { 'Gray' }
+        'WARN'    { 'Yellow' }
+        'ERROR'   { 'Red' }
+        'SUCCESS' { 'Green' }
+        default   { 'White' }
+    }
+
+    [System.IO.File]::AppendAllText($Script:LogPath, $line + [Environment]::NewLine, $Script:Encoding)
+    Write-Host $line -ForegroundColor $color
+}
+
+function New-FileIfMissing {
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [string]$InitialContent = ''
+    )
+    $dir = Split-Path -Parent $Path
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (-not (Test-Path $Path)) {
+        Set-Content -Path $Path -Value $InitialContent -Encoding UTF8
+        Write-Log "Created file: $Path" 'INFO'
+    }
+}
+
+function Wait-ForKey {
+    Write-Host
+    Write-Host 'Press Enter to continue...' -ForegroundColor Cyan
+    [void][System.Console]::ReadLine()
+}
+
+function Read-Choice {
+    param(
+        [string]$Prompt,
+        [int[]]$Valid = @(1,2,3)
+    )
+    while ($true) {
+        $userInput = Read-Host $Prompt
+        if ([string]::IsNullOrWhiteSpace($userInput)) { return $null }
+        if ($userInput -as [int] -and ($Valid -contains [int]$userInput)) { return [int]$userInput }
+        Write-Host "Please enter one of: $($Valid -join ', ')" -ForegroundColor Yellow
+    }
+}
+#endregion Utilities
+
+#region Config
+class HelipadConfig {
+    [string]$CommunityPath
+    [string]$ManagedListPath
+    [string]$SimVersion
+}
+
+function Get-Config {
+    if (Test-Path $Script:ConfigPath) {
+        try {
+            $json = Get-Content -Path $Script:ConfigPath -Raw
+            $obj  = $json | ConvertFrom-Json
+            $cfg  = [HelipadConfig]::new()
+            $cfg.CommunityPath   = $obj.CommunityPath
+            $cfg.ManagedListPath = $obj.ManagedListPath
+            $cfg.SimVersion      = $obj.SimVersion
+            return $cfg
+        } catch {
+            Write-Log "Failed to read config: $($_.Exception.Message)" 'ERROR'
+            return $null
+        }
+    }
+    return $null
+}
+
+function Save-Config {
+    param([Parameter(Mandatory)][HelipadConfig]$Config)
+    $payload = [pscustomobject]@{
+        CommunityPath   = $Config.CommunityPath
+        ManagedListPath = $Config.ManagedListPath
+        SimVersion      = $Config.SimVersion
+        UpdatedAt       = (Get-Date).ToString('s')
+        App             = $Script:AppId
+        Version         = $Script:Version
+    } | ConvertTo-Json -Depth 3
+    New-FileIfMissing -Path $Script:ConfigPath
+    Set-Content -Path $Script:ConfigPath -Value $payload -Encoding UTF8
+    Write-Log "Saved config to: $($Script:ConfigPath)" 'SUCCESS'
+}
+
+function Initialize-Config {
+    Write-Host "=== Initialization ===" -ForegroundColor Cyan
+
+    $cfg = Get-Config
+    if (-not $cfg) { $cfg = [HelipadConfig]::new() }
+
+    if ([string]::IsNullOrWhiteSpace($cfg.CommunityPath) -or -not (Test-Path $cfg.CommunityPath)) {
+        Write-Host "Enter the MSFS Community folder path" -ForegroundColor Yellow
+        $cfg.CommunityPath = Read-Host 'Community folder path'
+        if ([string]::IsNullOrWhiteSpace($cfg.CommunityPath) -or -not (Test-Path $cfg.CommunityPath)) {
+            Write-Log 'Community folder path invalid or not provided. Quitting.' 'ERROR'
+            throw 'Community path required'
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($cfg.ManagedListPath)) {
+        $cfg.ManagedListPath = $Script:ManagedList
+        Write-Log "Defaulting managed list to: $($cfg.ManagedListPath)" 'INFO'
+    }
+    New-FileIfMissing -Path $cfg.ManagedListPath -InitialContent "# Managed helipads to keep OFF`n# One filename per line (e.g., FR_5XZ53.bgl)`n"
+
+    # Optional Sim version prompt
+    if ([string]::IsNullOrWhiteSpace($cfg.SimVersion)) {
+        $sv = Read-Host 'Sim version (2020/2024, optional)'
+        if ($sv -match '^(2020|2024)$') { $cfg.SimVersion = $sv }
+    }
+
+    Save-Config -Config $cfg
+    return $cfg
+}
+#endregion Config
+
+#region Managed list
+function Read-ManagedList {
+    param([Parameter(Mandatory)][string]$ManagedListPath)
+
+    if (-not (Test-Path $ManagedListPath)) { return @() }
+
+    $lines = Get-Content -Path $ManagedListPath -ErrorAction SilentlyContinue |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_) -and ($_ -notmatch '^\s*#')
+        }
+
+    $normalized = $lines | ForEach-Object {
+        $name = $_.Trim()
+        if ($name.EndsWith('.OFF')) {
+            $name = $name.Substring(0, $name.Length - 4) + '.bgl'
+        }
+        $name
+    }
+
+    return $normalized | Sort-Object -Unique
+}
+
+function Save-ManagedList {
+    param([string]$ManagedListPath,[string[]]$Items)
+
+    # Always treat as array of trimmed strings
+    $Items = @($Items | ForEach-Object { $_.Trim() }) 
+
+    $content = @(
+        '# Managed helipads to keep OFF'
+        '# One filename per line (e.g., FR_5XZ53.bgl)'
+        ''
+    ) + $Items
+
+    # Each array element becomes its own line
+    Set-Content -Path $ManagedListPath -Value $content -Encoding UTF8
+    Write-Log "Managed list saved: $ManagedListPath (count=$($Items.Count))" 'SUCCESS'
+}
+
+function Update-ManagedList {
+    Write-Host "=== Update Managed List (OFF targets) ==="
+    Write-Host "DEBUG: ManagedListPath = '$($Config.ManagedListPath)'"
+
+    # Read current list (ignore comment lines)
+    if (Test-Path $Config.ManagedListPath) {
+        $ManagedList = Get-Content $Config.ManagedListPath | Where-Object { $_ -notmatch '^#' -and $_.Trim() -ne '' }
+    } else {
+        $ManagedList = @()
+    }
+
+    $count = $ManagedList.Count
+    Write-Host "Current entries: $count"
+
+    if ($count -gt 0) {
+        # Display current entries with indexes
+        for ($i = 0; $i -lt $count; $i++) {
+            Write-Host ("{0}. {1}" -f ($i + 1), $ManagedList[$i])
+        }
+    }
+
+    # Prompt user for search or deletion input
+    $input = Read-Host 'Enter search text (filename fragment, e.g., "FR_", "5XZ") OR index(es) of current entries to delete'
+    if ([string]::IsNullOrWhiteSpace($input)) { return }
+
+    $toRemove = @()
+    $toAdd    = @()
+
+    # If the input is numeric (indexes)
+    if ($input -match '^\d+([ ,]\d+)*$') {
+        $indexes = $input -split '[ ,]+' | ForEach-Object { [int]$_ - 1 }
+        foreach ($idx in $indexes) {
+            if ($idx -ge 0 -and $idx -lt $ManagedList.Count) {
+                Write-Log "Removed from managed list: $($ManagedList[$idx])" 'INFO'
+                $toRemove += $ManagedList[$idx]
+            }
+        }
+        $ManagedList = $ManagedList | Where-Object { $toRemove -notcontains $_ }
+    }
+    else {
+        # Treat input as a search fragment for new helipads to add
+        $search = $input.Trim()
+        $found = Get-ChildItem -Path $Config.CommunityPath -Recurse -Filter "*.bgl" |
+            Where-Object { $_.Name -like "*$search*" -and $_.DirectoryName -match "simfocus-autogen-helipads" }
+
+        if ($found) {
+            Write-Host "`nFound potential matches:`n"
+            $found | ForEach-Object { Write-Host $_.Name }
+            $confirm = Read-Host "`nAdd all above to managed list (Y/N)?"
+            if ($confirm -match '^[Yy]') {
+                $toAdd = $found.Name
+                $ManagedList += $toAdd
+                Write-Log "Added to managed list: $($toAdd -join ', ')" 'INFO'
+            }
+        } else {
+            Write-Host "No matches found for '$search'."
+        }
+    }
+
+    # --- Safe write-back block ---
+    $header = @(
+        "# Managed helipads to keep OFF"
+        "# One filename per line (e.g., FR_5XZ53.bgl)"
+    )
+
+    if ($ManagedList -and $ManagedList.Count -gt 0) {
+        ($header + ($ManagedList | ForEach-Object { $_.Trim() })) |
+            Out-File -FilePath $Config.ManagedListPath -Encoding UTF8
+        Write-Log "Managed list updated successfully." 'INFO'
+    } else {
+        $header | Out-File -FilePath $Config.ManagedListPath -Encoding UTF8
+        Write-Log "Managed list cleared (no entries remain)." 'INFO'
+    }
+}
+#endregion Managed list
+
+#region File state management
+function Get-HelipadSceneryRoot {
+    param([Parameter(Mandatory)][HelipadConfig]$Config)
+
+    $roots = @()
+
+    switch ($Config.SimVersion) {
+        '2020' {
+            $roots += Join-Path -Path $Config.CommunityPath `
+                -ChildPath 'simfocus-autogen-helipads-world\Scenery\simfocus-autogen-helipads-World\scenery'
+        }
+        '2024' {
+            $roots += Join-Path -Path $Config.CommunityPath `
+                -ChildPath 'simfocus-autogen-helipads-world-2024\Scenery\simfocus-autogen-helipads-World-2024\scenery'
+        }
+        default {
+            # Fallback: check both if SimVersion not set
+            $roots += Join-Path -Path $Config.CommunityPath `
+                -ChildPath 'simfocus-autogen-helipads-world\Scenery\simfocus-autogen-helipads-World\scenery'
+            $roots += Join-Path -Path $Config.CommunityPath `
+                -ChildPath 'simfocus-autogen-helipads-world-2024\Scenery\simfocus-autogen-helipads-World-2024\scenery'
+        }
+    }
+
+    return $roots | Where-Object { Test-Path $_ }
+}
+
+function Get-HelipadFiles {
+    param([Parameter(Mandatory)][string[]]$SceneryRoots)
+    $files = @()
+    foreach ($root in $SceneryRoots) {
+        $files += Get-ChildItem -Path $root -Filter '*.bgl' -File -ErrorAction SilentlyContinue
+        $files += Get-ChildItem -Path $root -Filter '*.OFF' -File -ErrorAction SilentlyContinue
+    }
+    return $files
+}
+
+function Set-HelipadStates {
+    param([Parameter(Mandatory)][HelipadConfig]$Config)
+
+    $roots = Get-HelipadSceneryRoot -Config $Config
+    if ($roots.Count -eq 0) {
+        Write-Log 'No Simfocus helipad scenery folders found under Community.' 'ERROR'
+        return
+    }
+
+    $managed  = Read-ManagedList -ManagedListPath $Config.ManagedListPath
+    $allFiles = Get-HelipadFiles -SceneryRoots $roots
+
+    $toOff = 0; $toOn = 0; $skipped = 0
+
+    foreach ($file in $allFiles) {
+    $name = $file.Name
+
+    # Normalize for lookup
+    if ($name.EndsWith('.OFF')) {
+        $baseName = $name.Substring(0, $name.Length - 4) + '.bgl'
+    } else {
+        $baseName = $name
+    }
+
+    $isManagedOff = $managed -contains $baseName
+
+    if ($isManagedOff) {
+        # Should be OFF
+        if ($name.EndsWith('.bgl')) {
+            $newName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name) + '.OFF'
+            try {
+                Rename-Item -Path $file.FullName -NewName $newName -ErrorAction Stop
+                Write-Log "Set OFF: $($file.Name) -> $newName" 'SUCCESS'
+                $toOff++
+            } catch {
+                Write-Log "Failed to set OFF: $($file.FullName) - $($_.Exception.Message)" 'ERROR'
+                $skipped++
+            }
+        } else {
+            $skipped++
+        }
+    } else {
+        # Should be ON
+        if ($name.EndsWith('.OFF')) {
+            $newName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name) + '.bgl'
+            try {
+                Rename-Item -Path $file.FullName -NewName $newName -ErrorAction Stop
+                Write-Log "Set ON: $($file.Name) -> $newName" 'SUCCESS'
+                $toOn++
+            } catch {
+                Write-Log "Failed to set ON: $($file.FullName) - $($_.Exception.Message)" 'ERROR'
+                $skipped++
+            }
+        } else {
+            $skipped++
+        }
+    }
+}
+
+    Write-Log "Summary: OFF applied=$toOff, ON applied=$toOn, unchanged/skipped=$skipped" 'INFO'
+    Write-Host "Done. OFF=$toOff, ON=$toOn, skipped=$skipped" -ForegroundColor Green
+}#endregion File state management
+
+#region Menu and interaction
+function Show-Banner {
+    param([HelipadConfig]$Config)
+
+    $simVer = if (-not [string]::IsNullOrWhiteSpace($Config.SimVersion)) {
+        $Config.SimVersion
+    } else {
+        'Not set'
+    }
+
+@"
+$($Script:AppName) v$($Script:Version)
+---------------------------------------
+Simulator Version: $simVer
+Community Folder : $($Config.CommunityPath)
+
+1. Update Managed List
+2. Update Helipad States
+3. Update Config
+Enter choice (1-3), or press Enter to quit.
+"@ | Write-Host
+}
+
+function Update-ConfigInteractive {
+    $cfg = Get-Config
+    if (-not $cfg) { $cfg = [HelipadConfig]::new() }
+
+    Write-Host "=== Update Config ===" -ForegroundColor Cyan
+
+    $community = Read-Host "Community folder path [current: $($cfg.CommunityPath)]"
+    if (-not [string]::IsNullOrWhiteSpace($community)) {
+        if (Test-Path $community) {
+            $cfg.CommunityPath = $community
+        } else {
+            Write-Log "Provided community path not found: $community" 'WARN'
+        }
+    }
+
+    $ml = Read-Host "Managed list path [current: $($cfg.ManagedListPath)]"
+    if (-not [string]::IsNullOrWhiteSpace($ml)) {
+        $cfg.ManagedListPath = $ml
+        New-FileIfMissing -Path $cfg.ManagedListPath
+    }
+
+    $sv = Read-Host "Sim version (2020/2024) [current: $($cfg.SimVersion)]"
+    if ($sv -match '^(2020|2024)$') { $cfg.SimVersion = $sv }
+
+    Save-Config -Config $cfg
+    Write-Host 'Config updated.' -ForegroundColor Green
+}
+
+function Main {
+    try {
+        New-FileIfMissing -Path $Script:LogPath
+        Write-Log "Starting $($Script:AppName) v$($Script:Version)" 'INFO'
+
+        $cfg = Initialize-Config
+
+        while ($true) {
+            Clear-Host
+            Show-Banner -Config $cfg
+            $choice = Read-Choice -Prompt 'Your choice' -Valid @(1,2,3)
+            if (-not $choice) {
+                Write-Log 'No choice entered. Exiting.' 'INFO'
+                break
+            }
+
+            switch ($choice) {
+                1 {
+                    Update-ManagedList -Config $cfg
+                    Wait-ForKey
+                }
+                2 {
+                    Set-HelipadStates -Config $cfg
+                    Wait-ForKey
+                }
+                3 {
+                    Update-ConfigInteractive
+                    $cfg = Get-Config
+                    Wait-ForKey
+                }
+            }
+        }
+    } catch {
+        Write-Log "Fatal error: $($_.Exception.Message)" 'ERROR'
+        Write-Host 'An error occurred. See log for details.' -ForegroundColor Red
+    } finally {
+        Write-Log "Exiting $($Script:AppName)" 'INFO'
+    }
+}
+
+Main
+#endregion Menu and interaction

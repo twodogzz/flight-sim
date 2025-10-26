@@ -1,0 +1,11 @@
+[2025-10-24 23:51:56] [INFO] No choice entered. Exiting.
+[2025-10-24 23:51:56] [INFO] Exiting Helipad Manager
+[2025-10-25 00:14:08] [INFO] Starting Helipad Manager v0.0.3α
+[2025-10-25 00:14:08] [INFO] Created file: E:\OneDrive\Documents\Powershell scripts\Simfocus-Helipad-Manager-managed-list.txt
+[2025-10-25 00:14:08] [SUCCESS] Saved config to: E:\OneDrive\Documents\Powershell scripts\Simfocus Helipad Manager\Simfocus-Helipad-Manager-config.json
+[2025-10-25 00:14:08] [SUCCESS] Saved config to: E:\OneDrive\Documents\Powershell scripts\Simfocus Helipad Manager\Simfocus-Helipad-Manager-config.json
+[2025-10-25 00:14:33] [SUCCESS] Set ON: TR_BUMFH.OFF -> TR_BUMFH.bgl
+[2025-10-25 00:14:33] [SUCCESS] Set ON: US_LBUMS.OFF -> US_LBUMS.bgl
+[2025-10-25 00:14:33] [INFO] Summary: OFF applied=0, ON applied=2, unchanged/skipped=47687
+[2025-10-25 00:14:45] [INFO] No choice entered. Exiting.
+[2025-10-25 00:14:45] [INFO] Exiting Helipad Manager

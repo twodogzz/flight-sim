@@ -1,0 +1,128 @@
+﻿=== NewSkyFix-A2A-Aerostar Log File ===
+This log records all state changes (Base ↔ AEST) and dry-run operations for the Aerostar aircraft.
+Created on 2025-10-16 11:09:34
+
+2025-10-16 11:09:34  
+=== Script started ===
+2025-10-16 11:09:34  Dry-run mode: True
+2025-10-16 11:09:34  📂 Folder state: AEST
+2025-10-16 11:09:34  📄 layout.json state: AEST
+2025-10-16 11:09:40  🔧 Toggling AEST → Base
+2025-10-16 11:09:40  🧪 Dry-run mode: No changes were made.
+2025-10-16 11:09:40  📌 Final state (unchanged): AEST
+2025-10-16 11:09:40  === Script finished ===
+
+2025-10-16 12:28:00  
+=== Script started ===
+2025-10-16 12:28:00  Dry-run mode: True
+2025-10-16 12:28:00  📂 Folder state: AEST
+2025-10-16 12:28:00  📄 layout.json state: AEST
+2025-10-16 12:28:11  🔧 Toggling AEST → Base
+2025-10-16 12:28:11  🧪 Dry-run mode: No changes were made.
+2025-10-16 12:28:11  📌 Final state (unchanged): AEST
+2025-10-16 12:28:11  === Script finished ===
+
+2025-10-16 12:28:55  
+=== Script started ===
+2025-10-16 12:28:55  Dry-run mode: False
+2025-10-16 12:28:55  📂 Folder state: AEST
+2025-10-16 12:28:55  📄 layout.json state: AEST
+2025-10-16 12:29:02  🔧 Toggling AEST → Base
+2025-10-16 12:29:02  ✅ layout.json updated successfully.
+2025-10-16 12:29:02  📌 Final state: Base
+2025-10-16 12:29:02  ⚙️ Running MSFSLayoutGenerator.exe on D:\FS\Community\a2a-aircraft-aerostar600
+2025-10-16 12:29:02  The file "D:\FS\Community\a2a-aircraft-aerostar600" is not named layout.json and will not be updated.
+2025-10-16 12:29:02  
+2025-10-16 12:29:02  
+2025-10-16 12:29:02  Press any key to exit...
+2025-10-16 12:37:35  
+=== Script started ===
+2025-10-16 12:37:35  Dry-run mode: False
+2025-10-16 12:37:35  📂 Folder state: Base
+2025-10-16 12:37:35  📄 layout.json state: Base
+2025-10-16 12:39:33  🔧 Toggling Base → AEST
+2025-10-16 12:39:33  ✅ layout.json updated successfully.
+2025-10-16 12:39:33  📌 Final state: AEST
+2025-10-16 12:39:33  ⚙️ Running MSFSLayoutGenerator.exe on D:\FS\Community\a2a-aircraft-aerostar600
+2025-10-16 12:39:34  ✅ layout.json rebuilt by MSFSLayoutGenerator
+2025-10-16 12:39:34  === Script finished ===
+
+2025-10-16 12:40:12  
+=== Script started ===
+2025-10-16 12:40:12  Dry-run mode: False
+2025-10-16 12:40:12  📂 Folder state: AEST
+2025-10-16 12:40:12  📄 layout.json state: AEST
+2025-10-16 12:40:24  🔧 Toggling AEST → Base
+2025-10-16 12:40:24  ✅ layout.json updated successfully.
+2025-10-16 12:40:24  📌 Final state: Base
+2025-10-16 12:40:24  ⚙️ Running MSFSLayoutGenerator.exe on D:\FS\Community\a2a-aircraft-aerostar600
+2025-10-16 12:40:24  ✅ layout.json rebuilt by MSFSLayoutGenerator
+2025-10-16 12:40:24  === Script finished ===
+
+2025-10-16 16:13:34  
+=== Script started ===
+2025-10-16 16:13:34  Dry-run mode: True
+2025-10-16 16:13:34  📂 Folder state: Base
+2025-10-16 16:13:34  📄 layout.json state: Base
+2025-10-16 16:13:47  🔧 Toggling Base → aerostar600.base
+2025-10-16 16:13:47  🧪 Dry-run mode: No changes were made.
+2025-10-16 16:13:47  📌 Final state (unchanged): Base
+2025-10-16 16:13:47  === Script finished ===
+
+2025-10-16 16:14:49  
+=== Script started ===
+2025-10-16 16:14:49  Dry-run mode: False
+2025-10-16 16:14:49  📂 Folder state: Base
+2025-10-16 16:14:49  📄 layout.json state: Base
+2025-10-16 16:15:15  Operation cancelled by user.
+2025-10-16 16:28:56  
+=== Script started ===
+2025-10-16 16:28:56  Dry-run mode: True
+2025-10-16 16:28:56  📂 Folder state: Base
+2025-10-16 16:28:56  📄 layout.json state: Base
+2025-10-16 16:29:50  🔧 Changing AltState from aerostar600.base → temp
+2025-10-16 16:29:50  🧪 Dry-run mode: No changes were made.
+2025-10-16 16:29:50  📌 Final state (unchanged): Base
+2025-10-16 16:29:50  === Script finished ===
+
+2025-10-16 16:31:03  
+=== Script started ===
+2025-10-16 16:31:03  Dry-run mode: False
+2025-10-16 16:31:03  📂 Folder state: Base
+2025-10-16 16:31:03  📄 layout.json state: Base
+2025-10-16 16:31:17  🔧 Changing AltState from temp → aerostar600.base
+2025-10-16 16:31:17  ✅ layout.json updated successfully.
+2025-10-16 16:31:17  📌 Final state: aerostar600.base
+2025-10-16 16:31:17  ⚙️ Running MSFSLayoutGenerator.exe on D:\FS\Community\a2a-aircraft-aerostar600\layout.json
+2025-10-16 16:31:18  ✅ layout.json rebuilt by MSFSLayoutGenerator
+2025-10-16 16:31:18  === Script finished ===
+
+2025-10-16 16:54:15  
+=== Script started ===
+2025-10-16 16:54:15  Dry-run mode: False
+2025-10-16 16:54:15  📂 Folder state: aerostar600.base
+2025-10-16 16:54:15  📄 layout.json state: aerostar600.base
+2025-10-16 16:54:25  Invalid choice. Operation cancelled.
+2025-10-16 16:55:25  
+=== Script started ===
+2025-10-16 16:55:25  Dry-run mode: False
+2025-10-16 16:55:25  📂 Folder state: aerostar600.base
+2025-10-16 16:55:25  📄 layout.json state: aerostar600.base
+2025-10-16 17:00:10  Invalid choice. Operation cancelled.
+2025-10-16 17:01:34  
+=== Script started ===
+2025-10-16 17:01:34  Dry-run mode: False
+2025-10-16 17:01:34  📂 Folder state: aerostar600.base
+2025-10-16 17:02:01  📄 layout.json state: aerostar600.base
+2025-10-16 17:20:22  
+=== Script started ===
+2025-10-16 17:20:22  Dry-run mode: False
+2025-10-16 17:20:22  📂 Folder state: aerostar600.base
+2025-10-16 17:20:22  📄 layout.json state: aerostar600.base
+2025-10-16 17:21:07  🔧 Changing AltState from aerostar600.base → a2a-aircraft-aerostar600
+2025-10-16 17:21:07  ✅ layout.json updated successfully.
+2025-10-16 17:21:07  📌 Final state: a2a-aircraft-aerostar600
+2025-10-16 17:21:07  ⚙️ Running MSFSLayoutGenerator.exe on D:\FS\Community\a2a-aircraft-aerostar600\layout.json
+2025-10-16 17:21:08  ✅ layout.json rebuilt by MSFSLayoutGenerator
+2025-10-16 17:21:08  === Script finished ===
+
