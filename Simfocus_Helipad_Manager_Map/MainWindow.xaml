@@ -1,0 +1,24 @@
+﻿<Window x:Class="Simfocus_Helipad_Manager_Map.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:gmap="clr-namespace:GMap.NET.WindowsPresentation;assembly=GMap.NET.WindowsPresentation"
+        Title="Simfocus Helipad Manager Map" Height="600" Width="900">
+    <DockPanel>
+        <!-- Top menu -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="File">
+                <MenuItem Header="Load CSV..." Click="LoadCsv_Click"/>
+                <MenuItem Header="Community Folder..." Click="SelectCommunity_Click"/>
+                <MenuItem Header="Index BGLs" Click="IndexBgls_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Map control -->
+        <gmap:GMapControl x:Name="MapControl"
+                          Zoom="5"
+                          MinZoom="2"
+                          MaxZoom="18"
+                          Margin="5"
+                          />
+    </DockPanel>
+</Window>

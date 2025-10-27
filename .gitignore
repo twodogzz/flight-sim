@@ -1,0 +1,87 @@
+# --- Build output ---
+bin/
+obj/
+[Bb]uild/
+[Bb]uilds/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.ilk
+*.log
+
+# --- Visual Studio ---
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# --- Visual Studio Code ---
+.vscode/
+
+# --- NuGet ---
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+*.nuget.props
+*.nuget.targets
+
+# --- Qt / C++ ---
+*.pro.user
+*.qmake.stash
+*.qmake.cache
+*.moc
+*.obj
+*.o
+*.a
+*.so
+*.lib
+*.exp
+*.pdb
+*.idb
+*.aps
+*.ncb
+*.sdf
+*.opensdf
+*.tlog
+*.ipch
+*.pch
+*.qrc.dep
+Makefile*
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# --- PowerShell ---
+*.ps1xml
+*.psc1
+*.pssc
+*.psd1
+*.psm1
+*.ps1~
+*.ps1.tmp
+
+# --- Test / Publish ---
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+publish/
+*.Publish.xml
+
+# --- IDE / Tools ---
+_ReSharper*/
+*.DotSettings.user
+.idea/
+*.dbmdl
+*.jfm
+
+# --- OS files ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
