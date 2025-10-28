@@ -1,9 +1,0 @@
-﻿<Application x:Class="Simfocus_Helipad_Manager_Map.App"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:Simfocus_Helipad_Manager_Map"
-             StartupUri="MainWindow.xaml">
-    <Application.Resources>
-         
-    </Application.Resources>
-</Application>
